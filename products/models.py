@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.db.models import Avg
 
 
 class Category(models.Model):
@@ -7,6 +8,10 @@ class Category(models.Model):
     is_enabled = models.BooleanField('is enabled', default=True)
     created_time = models.DateTimeField(auto_now_add=True)
     modified_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'category'
+        verbose_name_plural = 'categories'
 
     def __str__(self):
         return self.name
@@ -28,6 +33,13 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def average_rating(self):
+        avg_rating = self.ratings.aggregate(average=Avg('rating'))['average']
+        if avg_rating is None:
+            avg_rating = 0
+        return avg_rating
 
 
 class ProductRating(models.Model):
