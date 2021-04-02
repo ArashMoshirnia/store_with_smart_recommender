@@ -19,7 +19,7 @@ class Category(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=100)
-    category = models.ForeignKey(Category, related_name='products', on_delete=models.PROTECT)
+    category = models.ForeignKey(Category, related_name='products', on_delete=models.PROTECT, null=True)
     quantity = models.PositiveIntegerField(default=0)
     sold_count = models.PositiveIntegerField(default=0)
     description = models.TextField(blank=True)
