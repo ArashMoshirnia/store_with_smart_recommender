@@ -96,9 +96,6 @@ class Command(BaseCommand):
         User.objects.bulk_create(users)
 
     def import_ratings(self, ratings_df):
-        # First truncate table to avoid duplicate entries
-        ProductRating.objects.all().delete()
-
         ratings = []
         for i, rating in ratings_df.iterrows():
             ratings.append(
@@ -108,7 +105,7 @@ class Command(BaseCommand):
                     rating=rating.rating
                 )
             )
-        ProductRating.objects.bulk_create(ratings)
+        ProductRating.objects.bulk_create(ratings, ignore_conflicts=True)
 
     def handle(self, *args, **options):
         download_result = self.download_and_move_dataset()
