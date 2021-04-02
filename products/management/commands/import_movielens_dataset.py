@@ -4,9 +4,11 @@ import os
 import zipfile
 from urllib.request import urlretrieve
 
+from django.contrib.auth.hashers import make_password
 from django.core.management import BaseCommand
 
 from products.models import Product
+from users.models import User
 
 
 class Command(BaseCommand):
@@ -75,11 +77,23 @@ class Command(BaseCommand):
                     Product(name=movie_name)
                 )
 
-            # Product.objects.get_or_create(id=movie_id, defaults={'name': movie_name})
         Product.objects.bulk_create(products)
 
-    def create_users(self):
-        pass
+    def create_users(self, users_df):
+        users = []
+        current_user_count = User.objects.count()
+        num_users_needed = len(users_df.index)
+        num_users_to_create = num_users_needed - current_user_count
+
+        default_password = make_password('1111')
+        for i in range(num_users_to_create):
+            users.append(
+                User(
+                    username=User.generate_random_username(),
+                    password=default_password
+                )
+            )
+        User.objects.bulk_create(users)
 
     def handle(self, *args, **options):
         download_result = self.download_and_move_dataset()
@@ -89,3 +103,4 @@ class Command(BaseCommand):
         movielens, users, movies, ratings = self.prepare_dataframes()
 
         self.import_movies_as_products(movies)
+        self.create_users(users)
