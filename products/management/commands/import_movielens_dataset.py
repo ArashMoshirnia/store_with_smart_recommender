@@ -7,7 +7,7 @@ from urllib.request import urlretrieve
 from django.contrib.auth.hashers import make_password
 from django.core.management import BaseCommand
 
-from products.models import Product
+from products.models import Product, ProductRating
 from users.models import User
 
 
@@ -95,6 +95,21 @@ class Command(BaseCommand):
             )
         User.objects.bulk_create(users)
 
+    def import_ratings(self, ratings_df):
+        # First truncate table to avoid duplicate entries
+        ProductRating.objects.all().delete()
+
+        ratings = []
+        for i, rating in ratings_df.iterrows():
+            ratings.append(
+                ProductRating(
+                    user_id=rating.user_id,
+                    product_id=rating.movie_id,
+                    rating=rating.rating
+                )
+            )
+        ProductRating.objects.bulk_create(ratings)
+
     def handle(self, *args, **options):
         download_result = self.download_and_move_dataset()
         if not download_result:
@@ -104,3 +119,4 @@ class Command(BaseCommand):
 
         self.import_movies_as_products(movies)
         self.create_users(users)
+        self.import_ratings(ratings)
