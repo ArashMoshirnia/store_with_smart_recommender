@@ -6,6 +6,8 @@ from urllib.request import urlretrieve
 
 from django.core.management import BaseCommand
 
+from products.models import Product
+
 
 class Command(BaseCommand):
     dataset_dir = 'recommenders/movielens-dataset/'
@@ -41,7 +43,7 @@ class Command(BaseCommand):
 
         return True
 
-    def prepare_dataframe(self):
+    def prepare_dataframes(self):
         users_cols = ['user_id', 'age', 'sex', 'occupation', 'zip_code']
         ratings_cols = ['user_id', 'movie_id', 'rating', 'unix_timestamp']
         # The movies file contains a binary feature for each genre.
@@ -58,11 +60,32 @@ class Command(BaseCommand):
 
         movielens = ratings.merge(movies, on='movie_id').merge(users, on='user_id')
 
-        return movielens
+        return movielens, users, movies, ratings
+
+    def import_movies_as_products(self, movies_df):
+        products = []
+        for i, movie in movies_df.iterrows():
+            movie_id = movie.movie_id
+            movie_name = movie.title
+
+            try:
+                Product.objects.get(id=movie_id)
+            except Product.DoesNotExist:
+                products.append(
+                    Product(name=movie_name)
+                )
+
+            # Product.objects.get_or_create(id=movie_id, defaults={'name': movie_name})
+        Product.objects.bulk_create(products)
+
+    def create_users(self):
+        pass
 
     def handle(self, *args, **options):
         download_result = self.download_and_move_dataset()
         if not download_result:
             return False
 
-        movielens = self.prepare_dataframe()
+        movielens, users, movies, ratings = self.prepare_dataframes()
+
+        self.import_movies_as_products(movies)
