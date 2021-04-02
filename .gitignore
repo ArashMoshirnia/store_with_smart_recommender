@@ -4,6 +4,7 @@ __pycache__
 /media/
 /static/
 db*
+movielens*
 
 venv/
 env/
