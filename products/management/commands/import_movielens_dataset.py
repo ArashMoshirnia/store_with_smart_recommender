@@ -1,3 +1,4 @@
+import pandas as pd
 import shutil
 import os
 import zipfile
@@ -7,6 +8,8 @@ from django.core.management import BaseCommand
 
 
 class Command(BaseCommand):
+    dataset_dir = 'recommenders/movielens-dataset/'
+
     def download_and_move_dataset(self):
         zip_file_name = 'movielens.zip'
         if not os.path.exists(zip_file_name):
@@ -24,7 +27,7 @@ class Command(BaseCommand):
         zip_ref.extractall()
 
         source_dir = 'ml-100k/'
-        target_dir = 'recommenders/movielens-dataset/'
+        target_dir = self.dataset_dir
 
         if not os.path.exists(target_dir):
             os.mkdir(target_dir)
@@ -38,5 +41,28 @@ class Command(BaseCommand):
 
         return True
 
+    def prepare_dataframe(self):
+        users_cols = ['user_id', 'age', 'sex', 'occupation', 'zip_code']
+        ratings_cols = ['user_id', 'movie_id', 'rating', 'unix_timestamp']
+        # The movies file contains a binary feature for each genre.
+        genre_cols = [
+            "genre_unknown", "Action", "Adventure", "Animation", "Children", "Comedy",
+            "Crime", "Documentary", "Drama", "Fantasy", "Film-Noir", "Horror",
+            "Musical", "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western"
+        ]
+        movies_cols = ['movie_id', 'title', 'release_date', "video_release_date", "imdb_url"] + genre_cols
+
+        ratings = pd.read_csv(self.dataset_dir + 'u.data', sep='\t', names=ratings_cols, encoding='latin-1')
+        users = pd.read_csv(self.dataset_dir + 'u.user', sep='|', names=users_cols, encoding='latin-1')
+        movies = pd.read_csv(self.dataset_dir + 'u.item', sep='|', names=movies_cols, encoding='latin-1')
+
+        movielens = ratings.merge(movies, on='movie_id').merge(users, on='user_id')
+
+        return movielens
+
     def handle(self, *args, **options):
-        self.download_and_move_dataset()
+        download_result = self.download_and_move_dataset()
+        if not download_result:
+            return False
+
+        movielens = self.prepare_dataframe()
