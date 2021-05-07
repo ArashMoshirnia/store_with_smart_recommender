@@ -9,15 +9,18 @@ from tensorflow.python.framework.errors_impl import InvalidArgumentError
 
 from products.models import ProductRating
 
+EMBEDDING_SIZE = 10
 
-def create_neural_network(EMBEDDING_SIZE, NUM_MOVIES, NUM_USERS, ROW_COUNT):
-    movie_input = keras.Input(shape=(1,), name='movie_id')
 
-    movie_emb = layers.Embedding(output_dim=EMBEDDING_SIZE, input_dim=NUM_MOVIES, input_length=ROW_COUNT,
-                                 name='movie_emb')(movie_input)
-    movie_vec = layers.Flatten(name='FlattenMovie')(movie_emb)
+def create_neural_network(EMBEDDING_SIZE, NUM_PRODUCTS, NUM_USERS, ROW_COUNT):
+    product_input = keras.Input(shape=(1,), name='product_id')
 
-    movie_model = keras.Model(inputs=movie_input, outputs=movie_vec)
+    product_emb = layers.Embedding(output_dim=EMBEDDING_SIZE, input_dim=NUM_PRODUCTS, input_length=ROW_COUNT,
+                                   name='product_emb')(product_input)
+
+    product_vec = layers.Flatten(name='FlattenProduct')(product_emb)
+
+    product_model = keras.Model(inputs=product_input, outputs=product_vec)
 
     user_input = keras.Input(shape=(1,), name='user_id')
 
@@ -27,7 +30,7 @@ def create_neural_network(EMBEDDING_SIZE, NUM_MOVIES, NUM_USERS, ROW_COUNT):
 
     user_model = keras.Model(inputs=user_input, outputs=user_vec)
 
-    merged = layers.Dot(name='dot_product', normalize=True, axes=2)([movie_emb, user_emb])
+    merged = layers.Dot(name='dot_product', normalize=True, axes=2)([product_emb, user_emb])
     merged_dropout = layers.Dropout(0.2)(merged)
 
     dense_1 = layers.Dense(70, name='FullyConnected-1')(merged_dropout)
@@ -44,9 +47,9 @@ def create_neural_network(EMBEDDING_SIZE, NUM_MOVIES, NUM_USERS, ROW_COUNT):
     result = layers.Dense(1, name='result', activation="relu")(dense_4)
 
     adam = keras.optimizers.Adam(lr=0.001)
-    model = keras.Model([movie_input, user_input], result)
+    model = keras.Model([product_input, user_input], result)
     model.compile(optimizer=adam, loss='mean_absolute_error')
-    return model, movie_model, user_model
+    return model, product_model, user_model
 
 
 def train_model():
@@ -54,47 +57,46 @@ def train_model():
     ratings = np.asarray(ratings)
     train, test = train_test_split(ratings, test_size=0.1)
 
-    movie_ids = ProductRating.objects.values_list('product_id', flat=True).distinct()
-    num_movies = movie_ids.count()
+    product_ids = ProductRating.objects.values_list('product_id', flat=True).distinct()
+    num_products = product_ids.count()
 
     user_ids = ProductRating.objects.values_list('user_id', flat=True).distinct()
     num_users = user_ids.count()
 
-    EMBEDDING_SIZE = 10
     row_count = train.shape[0]
 
-    model, movie_model, user_model = create_neural_network(EMBEDDING_SIZE, num_movies+1, num_users+1, row_count)
+    model, product_model, user_model = create_neural_network(EMBEDDING_SIZE, num_products+1, num_users+1, row_count)
 
     callbacks = [keras.callbacks.EarlyStopping('val_loss', patience=10),
                  keras.callbacks.ModelCheckpoint('besttest.h5', save_best_only=True)]
 
     train_user_ids = np.asarray([obj[0] for obj in train])
-    train_movie_ids = np.asarray([obj[1] for obj in train])
+    train_product_ids = np.asarray([obj[1] for obj in train])
     train_ratings = np.asarray([obj[2] for obj in train])
 
     test_user_ids = np.asarray([obj[0] for obj in test])
-    test_movie_ids = np.asarray([obj[1] for obj in test])
+    test_product_ids = np.asarray([obj[1] for obj in test])
     test_ratings = np.asarray([obj[2] for obj in test])
 
     history = model.fit(
-        [train_movie_ids, train_user_ids],
+        [train_product_ids, train_user_ids],
         train_ratings,
         batch_size=100,
         epochs=10,
-        validation_data=([test_movie_ids, test_user_ids], test_ratings),
+        validation_data=([test_product_ids, test_user_ids], test_ratings),
         verbose=2,
         callbacks=callbacks
     )
 
     model.save('recommenders/saved_models/main_model.h5')
     user_model.save('recommenders/saved_models/user_model.h5')
-    movie_model.save('recommenders/saved_models/movie_model.h5')
+    product_model.save('recommenders/saved_models/product_model.h5')
 
     #### Save product embedding to pickle file ####
     product_embedding_list = []
 
-    for _id in movie_ids:
-        emb = movie_model.predict(np.array([_id]))
+    for _id in product_ids:
+        emb = product_model.predict(np.array([_id]))
         val = list(emb.reshape(1, -1))[0]
         product_embedding_list.insert(_id, val)
 
@@ -105,13 +107,13 @@ def train_model():
 def load_model():
     main_model = models.load_model('recommenders/saved_models/main_model.h5')
     user_model = models.load_model('recommenders/saved_models/user_model.h5')
-    movie_model = models.load_model('recommenders/saved_models/movie_model.h5')
+    product_model = models.load_model('recommenders/saved_models/product_model.h5')
 
-    return main_model, user_model, movie_model
+    return main_model, user_model, product_model
 
 
 def get_recommendations_for_user(user_id):
-    main_model, user_model, movie_model = load_model()
+    main_model, user_model, product_model = load_model()
 
     # If user_id does not exist in embedding, return empty list
     try:
