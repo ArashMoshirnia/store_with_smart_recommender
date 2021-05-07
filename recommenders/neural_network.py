@@ -115,16 +115,14 @@ def load_model():
 def get_recommendations_for_user(user_id):
     main_model, user_model, product_model = load_model()
 
-    # If user_id does not exist in embedding, return empty list
     try:
         user_embedding = user_model.predict([user_id]).reshape(1, -1)[0]
-    except InvalidArgumentError:
+        with open('recommenders/saved_models/product_embedding_list.pkl', 'rb') as f:
+            product_embedding_list = pickle.load(f)
+    except (InvalidArgumentError, FileNotFoundError):
         return []
 
     unique_product_ids = ProductRating.objects.values_list('product_id', flat=True).distinct()
-
-    with open('recommenders/saved_models/product_embedding_list.pkl', 'rb') as f:
-        product_embedding_list = pickle.load(f)
 
     knn_train_label = unique_product_ids
 
