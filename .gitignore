@@ -5,6 +5,7 @@ __pycache__
 /static/
 db*
 movielens*
+*.h5
 
 venv/
 env/
