@@ -1,8 +1,11 @@
 import numpy as np
+import pickle
 
 from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
 from tensorflow import keras
 from tensorflow.keras import layers, models
+from tensorflow.python.framework.errors_impl import InvalidArgumentError
 
 from products.models import ProductRating
 
@@ -51,10 +54,10 @@ def train_model():
     ratings = np.asarray(ratings)
     train, test = train_test_split(ratings, test_size=0.1)
 
-    movie_ids = ProductRating.objects.values('product_id').distinct()
+    movie_ids = ProductRating.objects.values_list('product_id', flat=True).distinct()
     num_movies = movie_ids.count()
 
-    user_ids = ProductRating.objects.values('user_id').distinct()
+    user_ids = ProductRating.objects.values_list('user_id', flat=True).distinct()
     num_users = user_ids.count()
 
     EMBEDDING_SIZE = 10
@@ -87,13 +90,47 @@ def train_model():
     user_model.save('recommenders/saved_models/user_model.h5')
     movie_model.save('recommenders/saved_models/movie_model.h5')
 
-    print(user_model.predict([np.array([10])]))
+    #### Save product embedding to pickle file ####
+    product_embedding_list = []
+
+    for _id in movie_ids:
+        emb = movie_model.predict(np.array([_id]))
+        val = list(emb.reshape(1, -1))[0]
+        product_embedding_list.insert(_id, val)
+
+    with open('recommenders/saved_models/product_embedding_list.pkl', 'wb') as f:
+        pickle.dump(product_embedding_list, f)
+
 
 def load_model():
     main_model = models.load_model('recommenders/saved_models/main_model.h5')
     user_model = models.load_model('recommenders/saved_models/user_model.h5')
     movie_model = models.load_model('recommenders/saved_models/movie_model.h5')
 
-    print(user_model.predict([np.array([10])]))
-
     return main_model, user_model, movie_model
+
+
+def get_recommendations_for_user(user_id):
+    main_model, user_model, movie_model = load_model()
+
+    # If user_id does not exist in embedding, return empty list
+    try:
+        user_embedding = user_model.predict([user_id]).reshape(1, -1)[0]
+    except InvalidArgumentError:
+        return []
+
+    unique_product_ids = ProductRating.objects.values_list('product_id', flat=True).distinct()
+
+    with open('recommenders/saved_models/product_embedding_list.pkl', 'rb') as f:
+        product_embedding_list = pickle.load(f)
+
+    knn_train_label = unique_product_ids
+
+    clf = KNeighborsClassifier(n_neighbors=11)
+    clf.fit(product_embedding_list, knn_train_label)
+
+    distances, indices = clf.kneighbors(user_embedding.reshape(1, -1), n_neighbors=10)
+    recommended_product_ids = indices.reshape(10, 1)
+    recommended_product_ids = [item[0] for item in list(recommended_product_ids)]
+
+    return recommended_product_ids
