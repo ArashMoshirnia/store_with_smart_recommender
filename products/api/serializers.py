@@ -16,7 +16,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ('id', 'name', 'quantity', 'sold_count', 'description', 'avatar', 'category')
+        fields = ('id', 'name', 'quantity', 'sold_count', 'description', 'avatar', 'category', 'average_rating',
+                  'created_time')
 
     def get_avatar(self, obj):
         try:
