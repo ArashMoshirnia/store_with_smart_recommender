@@ -1,3 +1,4 @@
+from constance import config
 from django.db.models import Avg
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.generics import get_object_or_404
@@ -24,8 +25,10 @@ class ProductViewSet(ModelViewSet):
             except:
                 pass
 
-        if len(smart_recommendations) < 10:
-            count_diff = 10 - len(smart_recommendations)
+        recommendation_count = config.RECOMMENDATION_COUNT
+
+        if len(smart_recommendations) < recommendation_count:
+            count_diff = recommendation_count - len(smart_recommendations)
 
             newest_highest_products = Product.objects.filter(
                 is_enabled=True
