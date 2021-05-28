@@ -40,6 +40,8 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework.authtoken',
+    'constance',
+    'constance.backends.database',
 
     'users.apps.UsersConfig',
     'products.apps.ProductsConfig'
@@ -125,3 +127,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+# Django Constance
+CONSTANCE_BACKEND = 'constance.backends.database.DatabaseBackend'
+CONSTANCE_CONFIG = {
+    'RECOMMENDATION_COUNT': (10, 'Number of recommended products returned in api'),
+}
